@@ -1,0 +1,31 @@
+{
+  "name": "npm-license-checker",
+  "version": "1.0.0",
+  "description": "A lightweight and easy-to-use command-line tool for checking and displaying the licenses of npm packages",
+  "main": "dist/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc"
+  },
+  "keywords": [
+    "licenses",
+    "npm licenses checker"
+  ],
+  "author": "Pasupol Bunsaen",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^20.6.0",
+    "typescript": "^5.2.2"
+  },
+  "bin": {
+    "npm-license-checker": "dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/niawjunior/npm-license-checker.git"
+  },
+  "dependencies": {
+    "child_process": "^1.0.2",
+    "fs": "^0.0.1-security"
+  }
+}
