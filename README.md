@@ -56,13 +56,9 @@
 
 ### Testing
 
-To test the tool, you can use the included test script:
+# Test specific features
 
 ```bash
-# Run the test script
-./test.sh
-
-# Or test specific features
 npm run dev -- --outdated -o test-output
 ```
 
@@ -151,19 +147,20 @@ When using the `--detailed` or `-d` flag, the report will include comprehensive 
 **Main File:** lib/express.js  
 **TypeScript Types:** @types/express  
 **Deprecated:** No  
-**Dependencies:**  
-- accepts: ~1.3.8  
-- array-flatten: 1.1.1  
+**Dependencies:**
+
+- accepts: ~1.3.8
+- array-flatten: 1.1.1
 - ...  
-**Dev Dependencies:**  
-- after: 0.8.2  
-- cookie-signature: 1.0.6  
+  **Dev Dependencies:**
+- after: 0.8.2
+- cookie-signature: 1.0.6
 - ...  
-**Peer Dependencies:**  
+  **Peer Dependencies:**
 - node: >= 0.10.0  
-**Keywords:** express, framework, sinatra, web, rest, restful, router, app, api  
-**NPM Version:** 9.6.6  
-**Node Version Required:** >= 0.10.0
+  **Keywords:** express, framework, sinatra, web, rest, restful, router, app, api  
+  **NPM Version:** 9.6.6  
+  **Node Version Required:** >= 0.10.0
 
 ---
 
@@ -178,18 +175,19 @@ When using the `--detailed` or `-d` flag, the report will include comprehensive 
 **Main File:** source/index.js  
 **TypeScript Types:** @types/chalk  
 **Deprecated:** No  
-**Dependencies:**  
-- ansi-styles: ^5.0.0  
+**Dependencies:**
+
+- ansi-styles: ^5.0.0
 - supports-color: ^7.2.0  
-**Dev Dependencies:**  
-- ava: ^3.15.0  
-- import-fresh: ^3.2.1  
+  **Dev Dependencies:**
+- ava: ^3.15.0
+- import-fresh: ^3.2.1
 - ...  
-**Peer Dependencies:**  
+  **Peer Dependencies:**
 - node: ^12.17.0 || ^14.13 || >=16.0.0  
-**Keywords:** color, colour, colors, terminal, console, cli, string, str, ansi, style, styles, formatting, rgb, 256, chalk, shell, xterm, log, logging, command-line, text, tty, format, output, styling  
-**NPM Version:** 9.6.5  
-**Node Version Required:** ^12.17.0 || ^14.13 || >=16.0.0
+  **Keywords:** color, colour, colors, terminal, console, cli, string, str, ansi, style, styles, formatting, rgb, 256, chalk, shell, xterm, log, logging, command-line, text, tty, format, output, styling  
+  **NPM Version:** 9.6.5  
+  **Node Version Required:** ^12.17.0 || ^14.13 || >=16.0.0
 ```
 
 ## Version History
