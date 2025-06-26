@@ -1,3 +1,7 @@
+[![npm version](https://badge.fury.io/js/npm-license-checker.svg)](https://badge.fury.io/js/npm-license-checker)
+[![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/niawjunior/npm-license-checker)
+
 # npm-license-checker
 
 `npm-license-checker` is a lightweight and easy-to-use command-line tool for checking and displaying the licenses of npm packages. It can read package names from either a text file or directly from your project's `package.json`.
