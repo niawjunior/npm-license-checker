@@ -56,7 +56,12 @@ function getDependenciesFromPackageJson() {
 }
 function parseOptions() {
     const args = process.argv.slice(2);
-    const options = { input: null, output: "license-report" };
+    const options = {
+        input: null,
+        output: "license-report",
+        showTree: false,
+        checkOutdated: false,
+    };
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
         if (arg === "-i" || arg === "--input") {
@@ -66,6 +71,12 @@ function parseOptions() {
         else if (arg === "-o" || arg === "--output") {
             options.output = args[i + 1];
             i++;
+        }
+        else if (arg === "--tree") {
+            options.showTree = true;
+        }
+        else if (arg === "--outdated") {
+            options.checkOutdated = true;
         }
     }
     return options;
@@ -80,68 +91,263 @@ const packageNames = options.input
         .filter(Boolean) // Remove empty lines
     : getDependenciesFromPackageJson();
 const licenseInfo = [];
-function getLicenseInfo(packageName) {
+async function getPackageInfo(packageName) {
     return new Promise((resolve, reject) => {
-        (0, child_process_1.exec)(`npm view ${packageName} license`, (error, stdout, stderr) => {
+        // Get package info including version and dependencies
+        (0, child_process_1.exec)(`npm view ${packageName} --json`, (error, stdout, stderr) => {
             if (error) {
+                // If package not found, try with @latest
+                if (error.message.includes("E404")) {
+                    (0, child_process_1.exec)(`npm view ${packageName}@latest --json`, (error, stdout) => {
+                        if (error) {
+                            resolve({
+                                name: packageName,
+                                version: "unknown",
+                                license: "Not found",
+                                dependencies: {},
+                            });
+                            return;
+                        }
+                        try {
+                            const info = JSON.parse(stdout);
+                            resolve({
+                                name: info.name || packageName,
+                                version: info.version || "unknown",
+                                license: info.license || "Unknown",
+                                dependencies: info.dependencies || {},
+                            });
+                        }
+                        catch (e) {
+                            resolve({
+                                name: packageName,
+                                version: "unknown",
+                                license: "Error parsing",
+                                dependencies: {},
+                            });
+                        }
+                    });
+                    return;
+                }
                 reject(error);
                 return;
             }
-            const lines = stdout.trim().split("\n");
-            if (lines.length > 0) {
-                const license = lines[0].trim();
-                resolve({ [packageName]: license });
+            try {
+                const info = JSON.parse(stdout);
+                resolve({
+                    name: info.name || packageName,
+                    version: info.version || "unknown",
+                    license: info.license || "Unknown",
+                    dependencies: info.dependencies || {},
+                });
             }
-            else {
-                resolve({ [packageName]: "License information not found" });
+            catch (e) {
+                resolve({
+                    name: packageName,
+                    version: "unknown",
+                    license: "Error parsing",
+                    dependencies: {},
+                });
             }
         });
     });
 }
+async function buildDependencyTree(packageName, depth = 0, seen = new Set()) {
+    if (seen.has(packageName) || depth > 5) {
+        // Prevent infinite loops and too deep trees
+        return "";
+    }
+    seen.add(packageName);
+    try {
+        const pkgInfo = await getPackageInfo(packageName);
+        let tree = `${"  ".repeat(depth)}- ${pkgInfo.name}@${pkgInfo.version} (${pkgInfo.license})`;
+        const deps = pkgInfo.dependencies || {};
+        if (Object.keys(deps).length > 0) {
+            tree +=
+                "\n" +
+                    (await Promise.all(Object.entries(deps).map(async ([depName, version]) => {
+                        return await buildDependencyTree(depName, depth + 1, new Set(seen));
+                    })).then((results) => results.join("\n")));
+        }
+        return tree;
+    }
+    catch (error) {
+        return `${"  ".repeat(depth)}- ${packageName} (Error fetching info)`;
+    }
+}
 async function checkLicenses(packageNames) {
+    const processedPackages = new Set();
     for (const packageName of packageNames) {
+        if (processedPackages.has(packageName))
+            continue;
         try {
-            const info = await getLicenseInfo(packageName);
-            licenseInfo.push(info);
-            console.log(info);
+            const pkgInfo = await getPackageInfo(packageName);
+            licenseInfo.push({
+                [pkgInfo.name]: `${pkgInfo.license} (${pkgInfo.version})`,
+            });
+            processedPackages.add(packageName);
+            console.log(`Processed: ${pkgInfo.name}@${pkgInfo.version} (${pkgInfo.license})`);
         }
         catch (error) {
-            console.error(`Error checking license for ${packageName}: ${error.message}`);
+            console.error(`Error processing ${packageName}:`, error.message);
         }
     }
-    generateMarkdownFile(packageNames);
+    await generateMarkdownFile(packageNames);
 }
-function generateMarkdownFile(packages) {
+async function checkOutdatedPackages(packages) {
+    const outdatedInfo = {};
+    try {
+        // Run npm outdated command
+        const { stdout } = await new Promise((resolve, reject) => {
+            (0, child_process_1.exec)("npm outdated --json --long", { maxBuffer: 1024 * 1024 * 5 }, (error, stdout, stderr) => {
+                if (error && error.code !== 1) {
+                    // npm outdated exits with 1 when there are outdated packages
+                    reject(error);
+                    return;
+                }
+                resolve({ stdout, stderr });
+            });
+        });
+        const outdatedData = JSON.parse(stdout || "{}");
+        // Process each outdated package
+        for (const [pkg, data] of Object.entries(outdatedData)) {
+            outdatedInfo[pkg] = {
+                current: data.current,
+                latest: data.latest,
+                wanted: data.wanted,
+                isOutdated: data.current !== data.latest,
+            };
+        }
+    }
+    catch (error) {
+        console.error("Error checking for outdated packages:", error);
+    }
+    return outdatedInfo;
+}
+async function generateMarkdownFile(packages) {
     const projectLicenses = {};
+    const packageVersions = {};
+    // Helper function to find duplicate package versions
+    function findDuplicatePackages(packages) {
+        const versionMap = {};
+        // Extract package names and versions
+        packages.forEach((pkg) => {
+            const versionMatch = pkg.match(/(.+)@([^@]+)$/);
+            if (versionMatch) {
+                const [, name, version] = versionMatch;
+                if (!versionMap[name]) {
+                    versionMap[name] = new Set();
+                }
+                versionMap[name].add(version);
+            }
+        });
+        // Filter for packages with multiple versions
+        return Object.entries(versionMap)
+            .filter(([_, versions]) => versions.size > 1)
+            .map(([name, versions]) => ({
+            name,
+            versions: Array.from(versions),
+        }));
+    }
+    // Process license information
     licenseInfo.forEach((info) => {
-        const packageName = Object.keys(info)[0];
-        const license = info[packageName];
+        const packageFullName = Object.keys(info)[0];
+        const [packageName, version] = packageFullName.split("@");
+        const license = info[packageFullName];
         if (!projectLicenses[license]) {
             projectLicenses[license] = [];
         }
-        projectLicenses[license].push(packageName);
+        projectLicenses[license].push(packageFullName);
+        if (version && version !== "unknown") {
+            if (!packageVersions[packageName]) {
+                packageVersions[packageName] = [];
+            }
+            if (!packageVersions[packageName].includes(version)) {
+                packageVersions[packageName].push(version);
+            }
+        }
     });
     const outputDir = path.resolve(options.output);
     (0, fs_1.mkdirSync)(outputDir, { recursive: true });
-    const markdownContent = `
-Project Licenses:
------------------
+    // Check for outdated packages if requested
+    let outdatedSection = "";
+    if (options.checkOutdated) {
+        const outdatedPackages = await checkOutdatedPackages(packages);
+        const outdatedList = Object.entries(outdatedPackages)
+            .filter(([_, info]) => info.isOutdated)
+            .map(([pkg, info]) => `- **${pkg}**: ${info.current} → ${info.latest} (wanted: ${info.wanted})`);
+        if (outdatedList.length > 0) {
+            outdatedSection = `
+## Outdated Dependencies
+
+The following packages have newer versions available:
+
+${outdatedList.join("\n")}
+
+To update, run: \`npm update\`
+`;
+        }
+        else {
+            outdatedSection =
+                "\n## Dependencies\n\nAll dependencies are up to date! 🎉\n";
+        }
+    }
+    // Generate dependency tree if enabled
+    let dependencyTreeSection = "";
+    if (options.showTree) {
+        const trees = await Promise.all(packages.map((pkg) => buildDependencyTree(pkg)));
+        dependencyTreeSection = `
+## Dependency Tree
+
+\`\`\`
+${trees.join("\n\n")}
+\`\`\`
+`;
+    }
+    // Generate duplicate packages section
+    const duplicateVersions = findDuplicatePackages(packages);
+    let duplicatesSection = "";
+    if (duplicateVersions.length > 0) {
+        duplicatesSection = `
+## Potential Version Conflicts
+
+The following packages have multiple versions in use:
+
+${duplicateVersions
+            .map(({ name, versions }) => `- **${name}**: ${versions.join(", ")}`)
+            .join("\n")}
+`;
+    }
+    const markdownContent = `# Dependency License Report
+
+## Summary
+
+### License Distribution
 ${Object.entries(projectLicenses)
-        .map(([license, packages]) => `- ${license}: ${packages.length} packages`)
+        .map(([license, pkgs]) => `- **${license}**: ${pkgs.length} packages`)
         .join("\n")}
 
-Packages with Unknown Licenses:
--------------------------------
-${packages
-        .filter((pkg) => !licenseInfo.some((info) => Object.keys(info)[0] === pkg))
-        .join("\n")}
-
-Packages with Licenses:
--------------------------------
+## Packages with Licenses
 ${packages
         .filter((pkg) => licenseInfo.some((info) => Object.keys(info)[0] === pkg))
-        .map((pkg) => `- ${pkg}: ${licenseInfo.find((info) => Object.keys(info)[0] === pkg)[pkg]}`)
+        .map((pkg) => {
+        const info = licenseInfo.find((info) => Object.keys(info)[0] === pkg);
+        return `- **${pkg}**: ${info[pkg]}`;
+    })
         .join("\n")}
+
+## Missing License Information
+${packages.filter((pkg) => !licenseInfo.some((info) => Object.keys(info)[0] === pkg)).length > 0
+        ? packages
+            .filter((pkg) => !licenseInfo.some((info) => Object.keys(info)[0] === pkg))
+            .map((pkg) => `- ${pkg}`)
+            .join("\n")
+        : "No packages with missing license information"}
+
+${outdatedSection}
+${duplicatesSection}
+${dependencyTreeSection}
+
+> Generated at: ${new Date().toISOString()}
 `;
     const outputPath = path.join(outputDir, "license-report.md");
     try {

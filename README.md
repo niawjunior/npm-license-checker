@@ -6,6 +6,66 @@
 
 `npm-license-checker` is a lightweight and easy-to-use command-line tool for checking and displaying the licenses of npm packages. It can read package names from either a text file or directly from your project's `package.json`.
 
+## Features
+
+- List licenses of npm packages
+- Support for both local and global packages
+- Generate markdown report
+- Check for outdated packages with `--outdated` flag
+- Get detailed package information with `--detailed` flag including:
+  - Package metadata (version, description, author)
+  - Repository and issue tracking links
+  - Dependencies (regular, dev, and peer)
+  - Compatibility information
+  - And more!
+
+## Local Development
+
+### Prerequisites
+
+- Node.js v16 or higher
+- npm v7 or higher
+
+### Setup
+
+1. Clone the repository:
+
+   ```bash
+   git clone https://github.com/niawjunior/npm-license-checker.git
+   cd npm-license-checker
+   ```
+
+2. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+3. Build the project:
+   ```bash
+   npm run build
+   ```
+
+### Development Commands
+
+- `npm run dev` - Run the tool in development mode
+- `npm run build` - Compile TypeScript to JavaScript
+- `npm test` - Run tests
+- `npm run lint` - Run ESLint
+- `npm run format` - Format code with Prettier
+
+### Testing
+
+To test the tool, you can use the included test script:
+
+```bash
+# Run the test script
+./test.sh
+
+# Or test specific features
+npm run dev -- --outdated -o test-output
+```
+
 ## Installation
 
 You can install `npm-license-checker` globally using npm:
@@ -22,65 +82,114 @@ npx npm-license-checker
 
 ## Usage
 
-### Option 1: Using package.json (Default)
-
-Simply run the following command in your project directory:
-
 ```bash
-npm-license-checker -o output-directory
+npx npm-license-checker [options]
+
+Options:
+  -i, --input <file>    Path to file containing list of packages (one per line)
+  -o, --output <dir>    Output directory for the report (default: license-report)
+  --outdated            Check for outdated packages
+  -d, --detailed        Show detailed information for each package
+  -h, --help            Display help
 ```
 
-This will automatically check all dependencies, devDependencies, and peerDependencies listed in your `package.json` file.
+## Example Output
 
-### Option 2: Using a custom package list
+### Basic Output
 
-1. Create a text file (e.g., `input.txt`) that contains the list of npm package names, one per line:
+```markdown
+# Dependency License Report
 
+## Summary
+
+### License Distribution
+
+- **MIT**: 12 packages
+- **Apache-2.0**: 1 package
+
+## Packages with Licenses
+
+- **express**: MIT (4.18.2)
+- **chalk**: MIT (5.0.1)
+- **lodash**: MIT (4.17.21)
+
+## Missing License Information
+
+No packages with missing license information
+
+## Outdated Dependencies
+
+The following packages have newer versions available:
+
+- **express**: 4.18.2 → 5.0.0 (wanted: 4.18.2)
+- **chalk**: 4.1.2 → 5.3.0 (wanted: 4.1.2)
+
+To update, run: `npm update`
+
+## Potential Version Conflicts
+
+- **example-package**: 1.0.0, 2.0.0
+
+> Generated at: 2023-04-01T12:00:00.000Z
 ```
-@angular/animations
-@angular/cdk
-@angular/common
-```
 
-2. Run the npm-license-checker command with the input file:
+### Detailed Package Information (with `--detailed` flag)
 
-```bash
-npm-license-checker -i input.txt -o output-directory
-```
+When using the `--detailed` or `-d` flag, the report will include comprehensive information about each package:
 
-## Command Line Options
+```markdown
+## Detailed Package Information
 
-- `-i, --input`: Path to input file containing package names (one per line)
-- `-o, --output`: Output directory for the license report (default: "license-report")
+### express@4.18.2
 
-## Output
+**License:** MIT  
+**Description:** Fast, unopinionated, minimalist web framework  
+**Author:** TJ Holowaychuk <tj@vision-media.ca>  
+**Homepage:** http://expressjs.com/  
+**Repository:** git+https://github.com/expressjs/express.git  
+**Bugs:** https://github.com/expressjs/express/issues  
+**Main File:** lib/express.js  
+**TypeScript Types:** @types/express  
+**Deprecated:** No  
+**Dependencies:**  
+- accepts: ~1.3.8  
+- array-flatten: 1.1.1  
+- ...  
+**Dev Dependencies:**  
+- after: 0.8.2  
+- cookie-signature: 1.0.6  
+- ...  
+**Peer Dependencies:**  
+- node: >= 0.10.0  
+**Keywords:** express, framework, sinatra, web, rest, restful, router, app, api  
+**NPM Version:** 9.6.6  
+**Node Version Required:** >= 0.10.0
 
-The tool will generate a markdown report in the specified output directory. The report includes:
+---
 
-- Summary of all licenses found
-- List of packages with unknown licenses
-- Detailed list of all packages with their licenses
+### chalk@5.0.1
 
-Example output in `license-report/license-report.md`:
-
-```
-Project Licenses:
------------------
-- MIT: 15 packages
-- ISC: 8 packages
-- Apache-2.0: 5 packages
-
-Packages with Unknown Licenses:
--------------------------------
-package-name-1
-package-name-2
-
-Packages with Licenses:
-----------------------
-@angular/animations: MIT
-@angular/cdk: MIT
-typescript: Apache-2.0
-...
+**License:** MIT  
+**Description:** Terminal string styling done right  
+**Author:** Sindre Sorhus <sindresorhus@gmail.com>  
+**Homepage:** https://github.com/chalk/chalk#readme  
+**Repository:** github:chalk/chalk  
+**Bugs:** https://github.com/chalk/chalk/issues  
+**Main File:** source/index.js  
+**TypeScript Types:** @types/chalk  
+**Deprecated:** No  
+**Dependencies:**  
+- ansi-styles: ^5.0.0  
+- supports-color: ^7.2.0  
+**Dev Dependencies:**  
+- ava: ^3.15.0  
+- import-fresh: ^3.2.1  
+- ...  
+**Peer Dependencies:**  
+- node: ^12.17.0 || ^14.13 || >=16.0.0  
+**Keywords:** color, colour, colors, terminal, console, cli, string, str, ansi, style, styles, formatting, rgb, 256, chalk, shell, xterm, log, logging, command-line, text, tty, format, output, styling  
+**NPM Version:** 9.6.5  
+**Node Version Required:** ^12.17.0 || ^14.13 || >=16.0.0
 ```
 
 ## Version History
