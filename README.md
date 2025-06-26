@@ -50,13 +50,10 @@
 
 - `npm run dev` - Run the tool in development mode
 - `npm run build` - Compile TypeScript to JavaScript
-- `npm test` - Run tests
 - `npm run lint` - Run ESLint
 - `npm run format` - Format code with Prettier
 
 ### Testing
-
-# Test specific features
 
 ```bash
 npm run dev -- --outdated -o test-output

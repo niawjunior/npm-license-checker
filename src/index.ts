@@ -119,75 +119,83 @@ const licenseInfo: { [packageName: string]: string }[] = [];
 
 async function getPackageInfo(packageName: string): Promise<PackageInfo> {
   return new Promise((resolve, reject) => {
-    exec(`npm view ${packageName} --json`, { maxBuffer: 1024 * 1024 * 5 }, (error, stdout, stderr) => {
-      if (error) {
-        // If package not found, try with @latest
-        if (error.message.includes("E404")) {
-          exec(`npm view ${packageName}@latest --json`, { maxBuffer: 1024 * 1024 * 5 }, (error, stdout) => {
-            if (error) {
-              resolve({
-                name: packageName,
-                version: "unknown",
-                license: "Not found",
-                description: "Package not found in npm registry",
-                dependencies: {},
-              });
-              return;
-            }
-            try {
-              const info = JSON.parse(stdout);
-              resolve(processPackageInfo(info, packageName));
-            } catch (e) {
-              resolve({
-                name: packageName,
-                version: "unknown",
-                license: "Error parsing",
-                description: "Error parsing package information",
-                dependencies: {},
-              });
-            }
-          });
+    exec(
+      `npm view ${packageName} --json`,
+      { maxBuffer: 1024 * 1024 * 5 },
+      (error, stdout, stderr) => {
+        if (error) {
+          // If package not found, try with @latest
+          if (error.message.includes("E404")) {
+            exec(
+              `npm view ${packageName}@latest --json`,
+              { maxBuffer: 1024 * 1024 * 5 },
+              (error, stdout) => {
+                if (error) {
+                  resolve({
+                    name: packageName,
+                    version: "unknown",
+                    license: "Not found",
+                    description: "Package not found in npm registry",
+                    dependencies: {},
+                  });
+                  return;
+                }
+                try {
+                  const info = JSON.parse(stdout);
+                  resolve(processPackageInfo(info, packageName));
+                } catch (e) {
+                  resolve({
+                    name: packageName,
+                    version: "unknown",
+                    license: "Error parsing",
+                    description: "Error parsing package information",
+                    dependencies: {},
+                  });
+                }
+              }
+            );
+            return;
+          }
+          reject(error);
           return;
         }
-        reject(error);
-        return;
+        try {
+          const info = JSON.parse(stdout);
+          resolve(processPackageInfo(info, packageName));
+        } catch (e) {
+          resolve({
+            name: packageName,
+            version: "unknown",
+            license: "Error parsing",
+            description: "Error parsing package information",
+            dependencies: {},
+          });
+        }
       }
-      try {
-        const info = JSON.parse(stdout);
-        resolve(processPackageInfo(info, packageName));
-      } catch (e) {
-        resolve({
-          name: packageName,
-          version: "unknown",
-          license: "Error parsing",
-          description: "Error parsing package information",
-          dependencies: {},
-        });
-      }
-    });
+    );
   });
 }
 
 function processPackageInfo(info: any, packageName: string): PackageInfo {
   // Handle repository field which can be string or object
   let repository = info.repository;
-  if (typeof repository === 'object' && repository.url) {
+  if (typeof repository === "object" && repository.url) {
     // Clean up common repository URL formats
-    repository = repository.url
-      .replace(/^git\+/, '')
-      .replace(/\.git$/, '');
+    repository = repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
   }
 
   // Handle author field which can be string or object
   let author = info.author;
-  if (typeof author === 'string') {
+  if (typeof author === "string") {
     // Try to parse author string in format: "Name <email> (url)"
-    const authorMatch = author.match(/^([^<(]+?)(?:\s*<([^>]+)>)?(?:\s*\(([^)]+)\))?/);
+    const authorMatch = author.match(
+      /^([^<(]+?)(?:\s*<([^>]+)>)?(?:\s*\(([^)]+)\))?/
+    );
     if (authorMatch) {
       author = {
         name: authorMatch[1].trim(),
         email: authorMatch[2]?.trim(),
-        url: authorMatch[3]?.trim()
+        url: authorMatch[3]?.trim(),
       };
     }
   }
@@ -323,43 +331,45 @@ async function checkOutdatedPackages(
 }
 
 function formatAuthor(author: any): string {
-  if (!author) return 'Unknown';
-  if (typeof author === 'string') return author;
-  
-  let result = author.name || 'Unknown';
+  if (!author) return "Unknown";
+  if (typeof author === "string") return author;
+
+  let result = author.name || "Unknown";
   if (author.email) result += ` <${author.email}>`;
   if (author.url) result += ` (${author.url})`;
   return result;
 }
 
-function formatDependencies(deps: { [name: string]: string } | undefined): string {
-  if (!deps) return 'None';
+function formatDependencies(
+  deps: { [name: string]: string } | undefined
+): string {
+  if (!deps) return "None";
   return Object.entries(deps)
     .map(([name, version]) => `- ${name}: ${version}`)
-    .join('\n');
+    .join("\n");
 }
 
 function generatePackageDetails(pkg: PackageInfo): string {
   const details = [
     `### ${pkg.name}@${pkg.version}`,
-    `**License:** ${pkg.license || 'Not specified'}`,
-    `**Description:** ${pkg.description || 'No description'}`,
+    `**License:** ${pkg.license || "Not specified"}`,
+    `**Description:** ${pkg.description || "No description"}`,
     `**Author:** ${formatAuthor(pkg.author)}`,
-    `**Homepage:** ${pkg.homepage || 'Not specified'}`,
-    `**Repository:** ${typeof pkg.repository === 'string' ? pkg.repository : pkg.repository?.url || 'Not specified'}`,
-    `**Bugs:** ${typeof pkg.bugs === 'string' ? pkg.bugs : pkg.bugs?.url || 'Not specified'}`,
-    `**Main File:** ${pkg.main || 'Not specified'}`,
-    `**TypeScript Types:** ${pkg.types || 'Not specified'}`,
-    `**Deprecated:** ${pkg.deprecated || 'No'}`,
+    `**Homepage:** ${pkg.homepage || "Not specified"}`,
+    `**Repository:** ${typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url || "Not specified"}`,
+    `**Bugs:** ${typeof pkg.bugs === "string" ? pkg.bugs : pkg.bugs?.url || "Not specified"}`,
+    `**Main File:** ${pkg.main || "Not specified"}`,
+    `**TypeScript Types:** ${pkg.types || "Not specified"}`,
+    `**Deprecated:** ${pkg.deprecated || "No"}`,
     `**Dependencies:**\n${formatDependencies(pkg.dependencies)}`,
     `**Dev Dependencies:**\n${formatDependencies(pkg.devDependencies)}`,
     `**Peer Dependencies:**\n${formatDependencies(pkg.peerDependencies)}`,
-    `**Keywords:** ${pkg.keywords ? pkg.keywords.join(', ') : 'None'}`,
-    `**NPM Version:** ${pkg._npmVersion || 'Unknown'}`,
-    `**Node Version Required:** ${pkg._nodeVersion || 'Not specified'}`,
+    `**Keywords:** ${pkg.keywords ? pkg.keywords.join(", ") : "None"}`,
+    `**NPM Version:** ${pkg._npmVersion || "Unknown"}`,
+    `**Node Version Required:** ${pkg._nodeVersion || "Not specified"}`,
   ];
 
-  return details.join('\n\n');
+  return details.join("\n\n");
 }
 
 async function generateMarkdownFile(packages: string[]) {
@@ -476,8 +486,8 @@ ${trees.join("\n\n")}
 The following packages have multiple versions in use:
 
 ${duplicateVersions
-      .map(({ name, versions }) => `- **${name}**: ${versions.join(", ")}`)
-      .join("\n")}
+  .map(({ name, versions }) => `- **${name}**: ${versions.join(", ")}`)
+  .join("\n")}
 `;
   }
 
@@ -487,7 +497,7 @@ ${duplicateVersions
     detailedSection = `
 ## Detailed Package Information
 
-${detailedPackages.map(pkg => generatePackageDetails(pkg)).join("\n\n---\n\n")}
+${detailedPackages.map((pkg) => generatePackageDetails(pkg)).join("\n\n---\n\n")}
 `;
   }
 
@@ -541,4 +551,7 @@ ${detailedSection}
   }
 }
 
-checkLicenses(packageNames);
+// Run the main function if this file is executed directly
+if (require.main === module) {
+  checkLicenses(packageNames);
+}
