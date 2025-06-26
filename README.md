@@ -1,6 +1,6 @@
 # npm-license-checker
 
-`npm-license-checker` is a lightweight and easy-to-use command-line tool for checking and displaying the licenses of npm packages.
+`npm-license-checker` is a lightweight and easy-to-use command-line tool for checking and displaying the licenses of npm packages. It can read package names from either a text file or directly from your project's `package.json`.
 
 ## Installation
 
@@ -10,9 +10,27 @@ You can install `npm-license-checker` globally using npm:
 npm install -g npm-license-checker
 ```
 
-To check and generate a license report for a list of npm packages, follow these steps:
+Or use it directly with `npx`:
 
-1. Create a text file (e.g., input.txt) that contains the list of npm package names, one per line:
+```bash
+npx npm-license-checker
+```
+
+## Usage
+
+### Option 1: Using package.json (Default)
+
+Simply run the following command in your project directory:
+
+```bash
+npm-license-checker -o output-directory
+```
+
+This will automatically check all dependencies, devDependencies, and peerDependencies listed in your `package.json` file.
+
+### Option 2: Using a custom package list
+
+1. Create a text file (e.g., `input.txt`) that contains the list of npm package names, one per line:
 
 ```
 @angular/animations
@@ -20,36 +38,57 @@ To check and generate a license report for a list of npm packages, follow these 
 @angular/common
 ```
 
-2. Run the npm-license-checker command with the input file and specify an output directory where the license report will be generated:
+2. Run the npm-license-checker command with the input file:
 
-`npm-license-checker -i input.txt -o output-directory`
+```bash
+npm-license-checker -i input.txt -o output-directory
+```
 
-3. Replace input.txt with the path to your package list file and output-directory with the desired output directory for the license report.
+## Command Line Options
 
-The tool will fetch license information for the specified packages and generate a report in the specified output directory. The report will include a summary of licenses and any packages with unknown licenses.
+- `-i, --input`: Path to input file containing package names (one per line)
+- `-o, --output`: Output directory for the license report (default: "license-report")
 
-4. You can view the generated license report in the specified output directory.
+## Output
+
+The tool will generate a markdown report in the specified output directory. The report includes:
+
+- Summary of all licenses found
+- List of packages with unknown licenses
+- Detailed list of all packages with their licenses
+
+Example output in `license-report/license-report.md`:
 
 ```
-Example Output
 Project Licenses:
-MIT: 28 packages
-Apache-2.0: 12 packages
-ISC: 8 packages
-BSD-3-Clause: 5 packages
+-----------------
+- MIT: 15 packages
+- ISC: 8 packages
+- Apache-2.0: 5 packages
 
-...
 Packages with Unknown Licenses:
+-------------------------------
 package-name-1
 package-name-2
-...
 
-Packages with Licenses
-package-name-3: MIT
-package-name-4: Apache-2.0
+Packages with Licenses:
+----------------------
+@angular/animations: MIT
+@angular/cdk: MIT
+typescript: Apache-2.0
 ...
+```
+
+## Version History
+
+### v1.1.0
+
+- Added support for reading dependencies from `package.json` by default
+- Improved command-line interface
+- Better error handling and reporting
 
 ```
 
 ![alt](img-1.png)
 ![alt](img-2.png)
+```
