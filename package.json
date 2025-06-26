@@ -1,6 +1,6 @@
 {
   "name": "npm-license-checker",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "A lightweight and easy-to-use command-line tool for checking and displaying the licenses of npm packages",
   "main": "dist/index.js",
   "scripts": {
@@ -20,8 +20,12 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testMatch": ["**/__tests__/**/*.test.ts"],
-    "collectCoverageFrom": ["src/**/*.ts"],
+    "testMatch": [
+      "**/__tests__/**/*.test.ts"
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.ts"
+    ],
     "coveragePathIgnorePatterns": [
       "/node_modules/",
       "/__tests__/",
@@ -36,7 +40,12 @@
         "statements": 80
       }
     },
-    "moduleFileExtensions": ["ts", "js", "json", "node"],
+    "moduleFileExtensions": [
+      "ts",
+      "js",
+      "json",
+      "node"
+    ],
     "transform": {
       "^.+\\.(ts|tsx)$": "ts-jest"
     },
