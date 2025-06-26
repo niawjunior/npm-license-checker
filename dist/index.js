@@ -16,21 +16,47 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 const child_process_1 = require("child_process");
 const fs_1 = require("fs");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs"));
+function getDependenciesFromPackageJson() {
+    try {
+        const packageJson = JSON.parse(fs.readFileSync("package.json", "utf-8"));
+        const deps = [
+            ...Object.keys(packageJson.dependencies || {}),
+            ...Object.keys(packageJson.devDependencies || {}),
+            ...Object.keys(packageJson.peerDependencies || {}),
+        ];
+        return [...new Set(deps)]; // Remove duplicates
+    }
+    catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+        console.error("Error reading package.json:", errorMessage);
+        process.exit(1);
+    }
+}
 function parseOptions() {
     const args = process.argv.slice(2);
-    const options = { input: "input.txt", output: "license-report" };
+    const options = { input: null, output: "license-report" };
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
         if (arg === "-i" || arg === "--input") {
@@ -45,11 +71,14 @@ function parseOptions() {
     return options;
 }
 const options = parseOptions();
-// Read the package names from input.txt and format them as an array
-const packageNames = fs
-    .readFileSync(options.input, "utf-8")
-    .split("\n")
-    .map((pkg) => pkg.trim());
+// Get package names either from input file or package.json
+const packageNames = options.input
+    ? fs
+        .readFileSync(options.input, "utf-8")
+        .split("\n")
+        .map((pkg) => pkg.trim())
+        .filter(Boolean) // Remove empty lines
+    : getDependenciesFromPackageJson();
 const licenseInfo = [];
 function getLicenseInfo(packageName) {
     return new Promise((resolve, reject) => {

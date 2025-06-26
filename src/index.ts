@@ -1,40 +1,61 @@
 #!/usr/bin/env node
-import { exec } from "child_process"
-import { writeFileSync, mkdirSync } from "fs"
-import * as path from "path"
-import * as fs from "fs"
+import { exec } from "child_process";
+import { writeFileSync, mkdirSync } from "fs";
+import * as path from "path";
+import * as fs from "fs";
 
 interface Options {
-  input: string
-  output: string
+  input: string | null;
+  output: string;
+}
+
+function getDependenciesFromPackageJson(): string[] {
+  try {
+    const packageJson = JSON.parse(fs.readFileSync("package.json", "utf-8"));
+    const deps = [
+      ...Object.keys(packageJson.dependencies || {}),
+      ...Object.keys(packageJson.devDependencies || {}),
+      ...Object.keys(packageJson.peerDependencies || {}),
+    ];
+    return [...new Set(deps)]; // Remove duplicates
+  } catch (error: unknown) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error occurred";
+    console.error("Error reading package.json:", errorMessage);
+    process.exit(1);
+  }
 }
 
 function parseOptions(): Options {
-  const args = process.argv.slice(2)
-  const options: Options = { input: "input.txt", output: "license-report" }
+  const args = process.argv.slice(2);
+  const options: Options = { input: null, output: "license-report" };
 
   for (let i = 0; i < args.length; i++) {
-    const arg = args[i]
+    const arg = args[i];
     if (arg === "-i" || arg === "--input") {
-      options.input = args[i + 1]
-      i++
+      options.input = args[i + 1];
+      i++;
     } else if (arg === "-o" || arg === "--output") {
-      options.output = args[i + 1]
-      i++
+      options.output = args[i + 1];
+      i++;
     }
   }
 
-  return options
+  return options;
 }
 
-const options = parseOptions()
-// Read the package names from input.txt and format them as an array
-const packageNames = fs
-  .readFileSync(options.input, "utf-8")
-  .split("\n")
-  .map((pkg) => pkg.trim())
+const options = parseOptions();
 
-const licenseInfo: { [packageName: string]: string }[] = []
+// Get package names either from input file or package.json
+const packageNames = options.input
+  ? fs
+      .readFileSync(options.input, "utf-8")
+      .split("\n")
+      .map((pkg) => pkg.trim())
+      .filter(Boolean) // Remove empty lines
+  : getDependenciesFromPackageJson();
+
+const licenseInfo: { [packageName: string]: string }[] = [];
 
 function getLicenseInfo(
   packageName: string
@@ -42,49 +63,49 @@ function getLicenseInfo(
   return new Promise((resolve, reject) => {
     exec(`npm view ${packageName} license`, (error, stdout, stderr) => {
       if (error) {
-        reject(error)
-        return
+        reject(error);
+        return;
       }
-      const lines: string[] = stdout.trim().split("\n")
+      const lines: string[] = stdout.trim().split("\n");
       if (lines.length > 0) {
-        const license: string = lines[0].trim()
-        resolve({ [packageName]: license })
+        const license: string = lines[0].trim();
+        resolve({ [packageName]: license });
       } else {
-        resolve({ [packageName]: "License information not found" })
+        resolve({ [packageName]: "License information not found" });
       }
-    })
-  })
+    });
+  });
 }
 
 async function checkLicenses(packageNames: string[]) {
   for (const packageName of packageNames) {
     try {
-      const info = await getLicenseInfo(packageName)
-      licenseInfo.push(info)
-      console.log(info)
+      const info = await getLicenseInfo(packageName);
+      licenseInfo.push(info);
+      console.log(info);
     } catch (error: any) {
       console.error(
         `Error checking license for ${packageName}: ${error.message}`
-      )
+      );
     }
   }
-  generateMarkdownFile(packageNames)
+  generateMarkdownFile(packageNames);
 }
 
 function generateMarkdownFile(packages: string[]) {
-  const projectLicenses: { [license: string]: string[] } = {}
+  const projectLicenses: { [license: string]: string[] } = {};
 
   licenseInfo.forEach((info) => {
-    const packageName = Object.keys(info)[0]
-    const license = info[packageName]
+    const packageName = Object.keys(info)[0];
+    const license = info[packageName];
     if (!projectLicenses[license]) {
-      projectLicenses[license] = []
+      projectLicenses[license] = [];
     }
-    projectLicenses[license].push(packageName)
-  })
+    projectLicenses[license].push(packageName);
+  });
 
-  const outputDir = path.resolve(options.output)
-  mkdirSync(outputDir, { recursive: true })
+  const outputDir = path.resolve(options.output);
+  mkdirSync(outputDir, { recursive: true });
 
   const markdownContent = `
 Project Licenses:
@@ -114,16 +135,16 @@ ${packages
       }`
   )
   .join("\n")}
-`
+`;
 
-  const outputPath = path.join(outputDir, "license-report.md")
+  const outputPath = path.join(outputDir, "license-report.md");
 
   try {
-    writeFileSync(outputPath, markdownContent)
-    console.log(`License report generated at ${outputPath}`)
+    writeFileSync(outputPath, markdownContent);
+    console.log(`License report generated at ${outputPath}`);
   } catch (error: any) {
-    console.error(`Error writing license report: ${error.message}`)
+    console.error(`Error writing license report: ${error.message}`);
   }
 }
 
-checkLicenses(packageNames)
+checkLicenses(packageNames);
