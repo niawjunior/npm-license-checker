@@ -1,6 +1,6 @@
 {
   "name": "npm-license-checker",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "A lightweight and easy-to-use command-line tool for checking and displaying the licenses of npm packages",
   "main": "dist/index.js",
   "scripts": {
