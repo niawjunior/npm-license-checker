@@ -56,7 +56,7 @@
 ### Testing
 
 ```bash
-npm run dev -- --outdated -o test-output
+npm run dev --outdated -o test-output
 ```
 
 ## Installation

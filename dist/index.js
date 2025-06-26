@@ -61,6 +61,7 @@ function parseOptions() {
         output: "license-report",
         showTree: false,
         checkOutdated: false,
+        detailed: false,
     };
     for (let i = 0; i < args.length; i++) {
         const arg = args[i];
@@ -78,6 +79,9 @@ function parseOptions() {
         else if (arg === "--outdated") {
             options.checkOutdated = true;
         }
+        else if (arg === "--detailed" || arg === "-d") {
+            options.detailed = true;
+        }
     }
     return options;
 }
@@ -93,35 +97,31 @@ const packageNames = options.input
 const licenseInfo = [];
 async function getPackageInfo(packageName) {
     return new Promise((resolve, reject) => {
-        // Get package info including version and dependencies
-        (0, child_process_1.exec)(`npm view ${packageName} --json`, (error, stdout, stderr) => {
+        (0, child_process_1.exec)(`npm view ${packageName} --json`, { maxBuffer: 1024 * 1024 * 5 }, (error, stdout, stderr) => {
             if (error) {
                 // If package not found, try with @latest
                 if (error.message.includes("E404")) {
-                    (0, child_process_1.exec)(`npm view ${packageName}@latest --json`, (error, stdout) => {
+                    (0, child_process_1.exec)(`npm view ${packageName}@latest --json`, { maxBuffer: 1024 * 1024 * 5 }, (error, stdout) => {
                         if (error) {
                             resolve({
                                 name: packageName,
                                 version: "unknown",
                                 license: "Not found",
+                                description: "Package not found in npm registry",
                                 dependencies: {},
                             });
                             return;
                         }
                         try {
                             const info = JSON.parse(stdout);
-                            resolve({
-                                name: info.name || packageName,
-                                version: info.version || "unknown",
-                                license: info.license || "Unknown",
-                                dependencies: info.dependencies || {},
-                            });
+                            resolve(processPackageInfo(info, packageName));
                         }
                         catch (e) {
                             resolve({
                                 name: packageName,
                                 version: "unknown",
                                 license: "Error parsing",
+                                description: "Error parsing package information",
                                 dependencies: {},
                             });
                         }
@@ -133,23 +133,66 @@ async function getPackageInfo(packageName) {
             }
             try {
                 const info = JSON.parse(stdout);
-                resolve({
-                    name: info.name || packageName,
-                    version: info.version || "unknown",
-                    license: info.license || "Unknown",
-                    dependencies: info.dependencies || {},
-                });
+                resolve(processPackageInfo(info, packageName));
             }
             catch (e) {
                 resolve({
                     name: packageName,
                     version: "unknown",
                     license: "Error parsing",
+                    description: "Error parsing package information",
                     dependencies: {},
                 });
             }
         });
     });
+}
+function processPackageInfo(info, packageName) {
+    // Handle repository field which can be string or object
+    let repository = info.repository;
+    if (typeof repository === "object" && repository.url) {
+        // Clean up common repository URL formats
+        repository = repository.url.replace(/^git\+/, "").replace(/\.git$/, "");
+    }
+    // Handle author field which can be string or object
+    let author = info.author;
+    if (typeof author === "string") {
+        // Try to parse author string in format: "Name <email> (url)"
+        const authorMatch = author.match(/^([^<(]+?)(?:\s*<([^>]+)>)?(?:\s*\(([^)]+)\))?/);
+        if (authorMatch) {
+            author = {
+                name: authorMatch[1].trim(),
+                email: authorMatch[2]?.trim(),
+                url: authorMatch[3]?.trim(),
+            };
+        }
+    }
+    return {
+        name: info.name || packageName,
+        version: info.version || "unknown",
+        license: info.license || "Unknown",
+        description: info.description,
+        author: author,
+        homepage: info.homepage,
+        repository: repository,
+        bugs: info.bugs,
+        dependencies: info.dependencies || {},
+        devDependencies: info.devDependencies,
+        peerDependencies: info.peerDependencies,
+        keywords: info.keywords,
+        main: info.main,
+        types: info.types || info.typings,
+        scripts: info.scripts,
+        _id: info._id,
+        _nodeVersion: info._nodeVersion,
+        _npmVersion: info._npmVersion,
+        dist: info.dist,
+        gitHead: info.gitHead,
+        _npmUser: info._npmUser,
+        maintainers: info.maintainers,
+        contributors: info.contributors,
+        deprecated: info.deprecated,
+    };
 }
 async function buildDependencyTree(packageName, depth = 0, seen = new Set()) {
     if (seen.has(packageName) || depth > 5) {
@@ -223,9 +266,51 @@ async function checkOutdatedPackages(packages) {
     }
     return outdatedInfo;
 }
+function formatAuthor(author) {
+    if (!author)
+        return "Unknown";
+    if (typeof author === "string")
+        return author;
+    let result = author.name || "Unknown";
+    if (author.email)
+        result += ` <${author.email}>`;
+    if (author.url)
+        result += ` (${author.url})`;
+    return result;
+}
+function formatDependencies(deps) {
+    if (!deps)
+        return "None";
+    return Object.entries(deps)
+        .map(([name, version]) => `- ${name}: ${version}`)
+        .join("\n");
+}
+function generatePackageDetails(pkg) {
+    const details = [
+        `### ${pkg.name}@${pkg.version}`,
+        `**License:** ${pkg.license || "Not specified"}`,
+        `**Description:** ${pkg.description || "No description"}`,
+        `**Author:** ${formatAuthor(pkg.author)}`,
+        `**Homepage:** ${pkg.homepage || "Not specified"}`,
+        `**Repository:** ${typeof pkg.repository === "string" ? pkg.repository : pkg.repository?.url || "Not specified"}`,
+        `**Bugs:** ${typeof pkg.bugs === "string" ? pkg.bugs : pkg.bugs?.url || "Not specified"}`,
+        `**Main File:** ${pkg.main || "Not specified"}`,
+        `**TypeScript Types:** ${pkg.types || "Not specified"}`,
+        `**Deprecated:** ${pkg.deprecated || "No"}`,
+        `**Dependencies:**\n${formatDependencies(pkg.dependencies)}`,
+        `**Dev Dependencies:**\n${formatDependencies(pkg.devDependencies)}`,
+        `**Peer Dependencies:**\n${formatDependencies(pkg.peerDependencies)}`,
+        `**Keywords:** ${pkg.keywords ? pkg.keywords.join(", ") : "None"}`,
+        `**NPM Version:** ${pkg._npmVersion || "Unknown"}`,
+        `**Node Version Required:** ${pkg._nodeVersion || "Not specified"}`,
+    ];
+    return details.join("\n\n");
+}
 async function generateMarkdownFile(packages) {
     const projectLicenses = {};
     const packageVersions = {};
+    const packageDetails = {};
+    const detailedPackages = [];
     // Helper function to find duplicate package versions
     function findDuplicatePackages(packages) {
         const versionMap = {};
@@ -248,11 +333,12 @@ async function generateMarkdownFile(packages) {
             versions: Array.from(versions),
         }));
     }
-    // Process license information
-    licenseInfo.forEach((info) => {
+    // Process license information and collect detailed package info
+    for (const info of licenseInfo) {
         const packageFullName = Object.keys(info)[0];
         const [packageName, version] = packageFullName.split("@");
         const license = info[packageFullName];
+        const pkgInfo = await getPackageInfo(packageFullName);
         if (!projectLicenses[license]) {
             projectLicenses[license] = [];
         }
@@ -265,7 +351,11 @@ async function generateMarkdownFile(packages) {
                 packageVersions[packageName].push(version);
             }
         }
-    });
+        // Store detailed package info if detailed mode is enabled
+        if (options.detailed) {
+            detailedPackages.push(pkgInfo);
+        }
+    }
     const outputDir = path.resolve(options.output);
     (0, fs_1.mkdirSync)(outputDir, { recursive: true });
     // Check for outdated packages if requested
@@ -317,6 +407,15 @@ ${duplicateVersions
             .join("\n")}
 `;
     }
+    // Generate detailed packages section if enabled
+    let detailedSection = "";
+    if (options.detailed && detailedPackages.length > 0) {
+        detailedSection = `
+## Detailed Package Information
+
+${detailedPackages.map((pkg) => generatePackageDetails(pkg)).join("\n\n---\n\n")}
+`;
+    }
     const markdownContent = `# Dependency License Report
 
 ## Summary
@@ -346,6 +445,7 @@ ${packages.filter((pkg) => !licenseInfo.some((info) => Object.keys(info)[0] === 
 ${outdatedSection}
 ${duplicatesSection}
 ${dependencyTreeSection}
+${detailedSection}
 
 > Generated at: ${new Date().toISOString()}
 `;
@@ -358,4 +458,7 @@ ${dependencyTreeSection}
         console.error(`Error writing license report: ${error.message}`);
     }
 }
-checkLicenses(packageNames);
+// Run the main function if this file is executed directly
+if (require.main === module) {
+    checkLicenses(packageNames);
+}
